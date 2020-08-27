@@ -11,7 +11,7 @@ source("pointProcess.R")
 source("dbin_LESS_Cached_MultipleCovResponseGPS.R")
 
 ## LOAD DATA 
-load("22.18.J_FaBeforeGPSSexCovIslandsALL_1.RData")
+load("Data.RData")
 
 
 #RUN NIMBLE MODEL (demonstration with single chain and low number of iterations)
