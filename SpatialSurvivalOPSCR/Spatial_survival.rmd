@@ -118,7 +118,7 @@ modelCode <- nimbleCode({
   sumHabInt <- log(sum(mu[1:numHabWindows]))
   ## FIRST YEAR 
   for(i in 1:M){
-    sxy[i, 1:2,1] ~ dbernppAC(
+    s[i, 1:2,1] ~ dbernppAC(
       lowerCoords = lowerHabCoords[1:numHabWindows, 1:2],
       upperCoords = upperHabCoords[1:numHabWindows, 1:2],
       logIntensities = logHabIntensity[1:numHabWindows],
@@ -132,9 +132,9 @@ modelCode <- nimbleCode({
   ## T>1 
   for(t in 2:n.years){
     for(i in 1:M){
-      sxy[i, 1:2, t] ~ dbernppACmovement_normal(lowerCoords = lowerHabCoords[1:numHabWindows, 1:2]
+      s[i, 1:2, t] ~ dbernppACmovement_normal(lowerCoords = lowerHabCoords[1:numHabWindows, 1:2]
                                                 , upperCoords = upperHabCoords[1:numHabWindows, 1:2]
-                                                , s = sxy[i, 1:2, t - 1]
+                                                , s = s[i, 1:2, t - 1]
                                                 , sd = tau
                                                 , baseIntensities = mu[1:numHabWindows]
                                                 , habitatGrid =  habitatGrid[1:y.max,1:x.max]
@@ -189,12 +189,12 @@ modelCode <- nimbleCode({
   for(i in 1:M){ 
     z[i,1] ~ dcat(omeg1[1:2]) 
     for(t in 1:n.years1){
-      z[i,t+1] ~ dcatState2Dead( zit = z[i,t]
+      z[i,t+1] ~ dcatState2Dead(   z = z[i,t]
                                  , gamma = gamma[t]
                                  , hSpatial =  h[1:numHabWindows]
                                  , wSpatial = w[1:numHabWindows]
                                  , phiSpatial = phi[1:numHabWindows]
-                                 , sxy = sxy[i,1:2,t]
+                                 , s = s[i,1:2,t]
                                  , habitatGrid = habitatGrid[1:y.max,1:x.max])
     }#i 								
   }#t 
@@ -212,7 +212,7 @@ modelCode <- nimbleCode({
       ## ALIVE DETECTIONS 
        y[i, 1:lengthYCombined,t] ~ dbinomLocal_normal(size = trials[1:n.traps],
                                                  p0 = p0,
-                                                 s = sxy[i,1:2,t],
+                                                 s = s[i,1:2,t],
                                                  sigma = sigma,
                                                  trapCoords = trapCoords[1:n.traps,1:2],
                                                  localTrapsIndices = trapIndex[1:n.cells,1:maxNBDets],
@@ -227,7 +227,7 @@ modelCode <- nimbleCode({
       y.dead[i, 1:3,t] ~ dbernppLocalDetection_normal(
           lowerCoords= lowerHabCoords[1:numHabWindows,1:2]
         , upperCoords= upperHabCoords[1:numHabWindows,1:2]
-        , s = sxy[i,1:2,t]
+        , s = s[i,1:2,t]
         , sd = sigma
         , baseIntensities = detReco[1:numHabWindows]
         , habitatGridLocal=habitatGridLocal[1:y.max,1:x.max]
@@ -276,7 +276,7 @@ mhH <- -2
 
 betaH <- 1
 betaW <- -1
-tau <- 3
+tau <- 1.2
 
 recruitment <- 0.3  
 ## calculate the gamma 
@@ -395,12 +395,12 @@ model <- nimbleModel( code = modelCode,
 
 ### 1.7 Simualte SCR data from the NIMBLE model
 
-We first need to obtain the list of nodes that will be simulated. We used the 'getDependencies' function from NIMBLE. Using the 'simulate' function from NIMBLE, we will then simulate the activity center (AC) locations ('sxy'), the state of the individual ('z') and SCR observation data ('y') given the values we provided for 'p0', 'sigma' and 'psi'.
+We first need to obtain the list of nodes that will be simulated. We used the 'getDependencies' function from NIMBLE. Using the 'simulate' function from NIMBLE, we will then simulate the activity center (AC) locations ('s'), the state of the individual ('z') and SCR observation data ('y') given the values we provided for 'p0', 'sigma' and 'psi'.
 
 
 ```{r , warning = FALSE, message = FALSE}
 # FIRST WE GET THE NODES TO SIMULATE
-#nodesToSim <- model$getDependencies(c("sxy", "z"), self=T)
+#nodesToSim <- model$getDependencies(c("s", "z"), self=T)
 nodesToSim <- model$getDependencies(c("p0","sigma","mhW", "mhH","mu",
                                       "gamma","tau","gamma1","betaH",
                                        "betaW"),
@@ -408,7 +408,7 @@ nodesToSim <- model$getDependencies(c("p0","sigma","mhW", "mhH","mu",
                                       downstream = T,
                                       returnScalarComponents = TRUE)
 # THEN WE SIMULATE THOSE NODES 
-set.seed(10)
+set.seed(1)
 model$simulate(nodesToSim, includeData = FALSE)
 
   # 
@@ -421,7 +421,7 @@ model$simulate(nodesToSim, includeData = FALSE)
 #                                  , 
 #                                  gamma = model$gamma[t]#gamma2[1:numHabWindows,t]
 #                                  , 
-#                                  gammaVec = model$sxy[i,1:2,t]
+#                                  gammaVec = model$s[i,1:2,t]
 #                                  , 
 #                                  h = -999
 #                                  , 
@@ -435,7 +435,7 @@ model$simulate(nodesToSim, includeData = FALSE)
 #                                  , 
 #                                  phiVec = model$phi[1:numHabWindows]
 #                                  , 
-#                                  sxy = model$sxy[i,1:2,t]
+#                                  s = model$s[i,1:2,t]
 #                                  , 
 #                                  habIndex = model$habitatGrid[1:y.max,1:x.max]
 #                                  )
@@ -474,7 +474,7 @@ nimData$y.dead <- model$y.dead
 
 nimData$z <- z
 nimInits$z <- zInits
-nimInits$sxy <- model$sxy
+nimInits$s <- model$s
 
 # CREATE AND COMPILE THE NIMBLE MODEL
 model <- nimbleModel( code = modelCode,
