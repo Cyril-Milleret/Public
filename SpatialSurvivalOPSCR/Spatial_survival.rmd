@@ -518,7 +518,7 @@ MCMCRuntime <- system.time(myNimbleOutput <- runMCMC( mcmc = cMCMC,
                                                              niter = 5000,
                                                              nchains = 3,
                                                              samplesAsCodaMCMC = TRUE))
-setwd("C:/Personal_Cloud/OneDrive/Work/Rovquant/Papers/SpatialSurvivalRates/Simulations/vignette")
+setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
 save(myNimbleOutput, MCMCRuntime, file="samples.RData")
 ```
 
