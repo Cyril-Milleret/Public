@@ -51,7 +51,7 @@
 #'                             , s = s
 #'                             , habitatGrid = habitatGrid)
 #' zPlusOne
-#' #
+#' 
 #' dcatState1Dead(  x = zPlusOne
 #'                  , z = z
 #'                  , gamma = gamma
@@ -88,9 +88,9 @@ NULL
 #### 1.Density function ####
 dcatState1Dead  <- nimbleFunction(run = function( x = double(0)
                                                   , z = double(0)
-                                                  , gamma = double(0, default=-999)
+                                                  , gamma = double(0, default = -999)
                                                   , gammaSpatial = double(1)
-                                                  , phi = double(0, default=-999)
+                                                  , phi = double(0, default = -999)
                                                   , phiSpatial = double(1)
                                                   , s = double(1)
                                                   , habitatGrid = double(2)
@@ -145,9 +145,9 @@ NULL
 #### 2.Sampling function ####
 rcatState1Dead <- nimbleFunction(run = function( n = integer(0)
                                                  , z = double(0)
-                                                 , gamma = double(0, default=-999)
+                                                 , gamma = double(0, default = -999)
                                                  , gammaSpatial = double(1)
-                                                 , phi = double(0, default=-999)
+                                                 , phi = double(0, default = -999)
                                                  , phiSpatial = double(1)
                                                  , s = double(1)
                                                  , habitatGrid = double(2)

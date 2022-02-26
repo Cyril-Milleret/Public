@@ -1,11 +1,11 @@
 ---
-title: "Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival"
+title: "Appendix 5: Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival"
 author: "Cyril Milleret"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: references.bib
 vignette: >
-  %\VignetteIndexEntry{Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival}
+  %\VignetteIndexEntry{Appendix 5: Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -23,32 +23,30 @@ library(nimble)
 library(nimbleSCR)
 library(basicMCMCplots)
 library(raster)
+library(coda)
+
+## Functions will be uploaded into nimbleSCR
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Dead.R")
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/calculateDensity.R")
-
-
-
 
 ```
 
 ## 1. Simulate SCR data
 ### 1.1 Habitat and trapping grid
 
-As an example, we create a $80 \times 100$ habitat grid with a resolution of 10 for each dimension. On the habitat, we center a $60 \times 80$ trapping grid with also a resolution of 10 for each dimension, leaving an untrapped perimeter (buffer) with a width of 20 distance units on each side of the grid.   
+As an example, we create a $36 \times 36$ habitat grid with a resolution of 1 for each dimension. On the habitat, we center a $28 \times 28$ trapping grid with also a resolution of 1 for each dimension.   
 
 ```{r , warning = FALSE, message = FALSE}
-r <- raster(nrows=5, ncols=5, xmn=10, xmx=50, ymn=10, ymx=50)
+r <- raster(nrows=9, ncols=9, xmn=0, xmx=36, ymn=0, ymx=36)
 r[] <- 1
 ## Create habitat grid
 coordsHabitatGridCenter <- coordinates(r)
-# coordsHabitatGridCenter <- cbind(rep(seq(23, 8, by = -5), 4),
-#                                  sort(rep(seq(8, 23, by = 5), 4)))
 colnames(coordsHabitatGridCenter) <- c("x","y")
 
-## Create trap grid
-coordsObsCenter <- cbind(rep(seq(12.5, 47.5, by = 1), 36),
-                         sort(rep(seq(47.5, 12.5, by = -1), 36)))
+## Create trapping grid
+coordsObsCenter <- cbind(rep(seq(4.5, 31.5, by = 1), 28),
+                         sort(rep(seq(31.5, 4.5, by = -1), 28)))
 colnames(coordsObsCenter) <- c("x","y")
 
 ## Plot check
@@ -57,8 +55,8 @@ points(coordsHabitatGridCenter[,"y"] ~ coordsHabitatGridCenter[,"x"],
      pch = 1, cex = 1.5) 
 points(coordsObsCenter[,"y"] ~ coordsObsCenter[,"x"], col="red", pch=16 ) 
 par(xpd=TRUE)
-legend(x = 7, y = 7,
-       legend=c("Habitat window centers", "Observation window centers"),
+legend(x = 5, y = 5,
+       legend=c("Habitat window centers", "Trapping grid"),
        pt.cex = c(1.5,1),
        horiz = T,
        pch=c(1,16),
@@ -68,8 +66,6 @@ legend(x = 7, y = 7,
        
 habitatMask <- as.matrix(r)#matrix(1, nrow = 4, ncol= 4, byrow = TRUE)
        
-       
-
 ```
 
 ### 1.2 Rescale coordinates
@@ -95,7 +91,7 @@ We also set up the objects necessary to perform the local evaluation for the liv
 ```{r , warning = FALSE, message = FALSE}
 trapLocal <- getLocalObjects(habitatMask = habitatMask,
                              coords = scaledObjects$coordsDataScaled,
-                             dmax = 1.2,
+                             dmax = 1.8,
                              resizeFactor = 1,
                              plot.check = TRUE
 )
@@ -143,9 +139,6 @@ modelCode <- nimbleCode({
       )
     }#i
   }#t
-  
-  
-
   
   ##--------------------------------------------------------------------------------------------
   ##-------------------------------## 
@@ -213,7 +206,7 @@ modelCode <- nimbleCode({
     }#i
   }#t
   
-  ##---------------------------------------------------------------------------------------------										  
+  ##---------------------------------------------------------------------------------------------		  
   ##----------------------------------------## 
   ##---------- DERIVED PARAMETERS ----------##
   ##----------------------------------------##
@@ -244,16 +237,15 @@ modelCode <- nimbleCode({
 ### 1.4 Define parameter values to simulate
 
 ```{r , warning = FALSE, message = FALSE}
-
 # PARAMETERS
-p0 <- 0.05
-sigma <- 0.4
+p0 <- 0.15 # We intentionally chose a large p0  to increase the size of the dataset and the convergence
+sigma <- 2/res(r)[1] # Since we scaled the coordinates to the habitat, we also need to rescale the sigmaScaled 
 
-M <- 500
-n.individualsT1 <- 200
+M <- 650
+n.individualsT1 <- 250
 n.years <- 5
 ## ASSIGN SIMULATED VALUES 
-phi0 <- 1.6
+phi0 <- 1.4
 
 betaPhi <- -1
 tau <- 1.5
@@ -279,26 +271,12 @@ habCovImage[] <- habCov[lowerAndUpperCoords$habitatGrid]
 #check the habitat covariate. 
 image(habCovImage)
 
-### check surv/mortality prob relationship 
+### check survival probability relationship with density
 dens <- log(c(1:10))
 phi <- 1-(exp(- exp(phi0 +  dens * betaPhi)))
 plot(phi ~ dens, ylim=c(0,1), type="b")
 
 ```
-
-
-The model formulation uses data augmentation to derive N estimates [@Royle2012]. We therefore need to choose the total number of individuals *M* (detected + augmented). Here we used 200. The expected total number of individuals present in the population is 'M * psi'.
-
-
-
-When simulating detections using this formulation of the SCR model in NIMBLE, all the information about detections (where and how many) is stored in 'y' in that order (See ?dbinomlocal_normal for more details.):
-
-* 'detNums' (total number of individual detections), 
-* 'x' (number of individual detections at each trap), 
-* 'detIndices' (id of the trap at which detections occur). 
-
-We now need to provide the maximum number of spatial recaptures that can be simulated per individual. We recommend using 'trapLocal\$numlocalindicesmax' that defines the maximum number of traps available for detections when local evaluation is used. This will enable the simulation of as many spatial detections as allowed by the restrictions imposed by the local evaluation (defined by the 'dmax' argument from 'getLocalObjects').
-This means that the length of the 'y' observation vector for each individual is equal to the length of $c(detNums, x, detIndices)$ and is therefore equal to $lengthYCombined = 1+ trapLocal\$numLocalIndicesMax * 2$. 
 
 
 
@@ -383,12 +361,17 @@ N
 
 N.recoveredDead <- apply(model$z,2,function(x)sum(x==3))
 N.recoveredDead
+
+# check average density 
+mean(log(model$dens+1))
+
+
 ```
 
 
 ## 2. RUN MCMC WITH NIMBLE
 
-Here, we build the NIMBLE model again using the simulated 'y' and 'y.dead' as data. For simplicity, we used the simulated 'z' as initial values. Then we can fit the SCR model with the simulated 'y' 'y.dead' data set.  
+Here, we build the NIMBLE model again using the simulated 'y' as data. For simplicity, we used the simulated 'z' as initial values. Then we can fit the SCR model with the simulated 'y' data set.  
 
 ```{r , warning = FALSE, message = FALSE}
 
@@ -423,7 +406,7 @@ model$calculate()
 cmodel <- compileNimble(model)
 cmodel$calculate()
 MCMCconf <- configureMCMC(model = model,
-                          monitors = c("p0","sigma","betaPhi","phi0", "N",
+                          monitors = c("p0","sigma","betaPhi","phi0", "N","dens",
                                          "gamma","tau"),
                           control = list(reflective = TRUE),
                           thin = 1)
@@ -448,19 +431,263 @@ cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
 MCMCRuntime <- system.time(myNimbleOutput <- runMCMC( mcmc = cMCMC,
                                                              nburnin = 500,
                                                              niter = 5000,# need much longer run time (60000)
-                                                             nchains = 3,
+                                                             nchains = 2,
                                                              samplesAsCodaMCMC = TRUE))
-setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
-save(myNimbleOutput, MCMCRuntime, file="samplesDensity.RData")
 ```
 
-```{r , eval=T, warning = FALSE, message = FALSE}
+
+```{r , eval=F, include=FALSE , warning = FALSE, message = FALSE}
+setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
+save(myNimbleOutput, MCMCRuntime, file= "samplesDensity.RData")
+```
+
+
+## 3. PLOT POSTERIORS 
+
+```{r , eval=T, include=F, warning = FALSE, message = FALSE}
 setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
 load("samplesDensity.RData")
-
-#plot check 
-chainsPlot(myNimbleOutput, var=c("N[1]","N[2]","N[3]","N[4]","N[5]"), line=N)
-chainsPlot(myNimbleOutput, var=c("p0","sigma","betaPhi","phi0","tau"), line=c(p0, sigma,betaPhi,phi0, tau))
 ```
+
+```{r , eval=T, include=TRUE, warning = FALSE, message = FALSE}
+#plot MCMC 
+chainsPlot(myNimbleOutput, var=c("N[1]","N[2]","N[3]","N[4]","N[5]"), line=N)
+chainsPlot(myNimbleOutput, var=c("p0","sigma","betaPhi","phi0","tau"), line=c(p0, sigma, betaPhi, phi0, tau))
+```
+
+## 3. IMPROVE MIXING BY CENTERING DENSITY
+In a density-dependent survival OPSCR model, the log-density is used as a covariate for determining location- and time-specific survival rates.  As expected for such model structures, use of this covariate induces a strong negative correlation between the posterior samples of the intercept and slope of the linear predictor ($phi_0$ and $\beta_{\phi}$, respectively).  This particular model is complicated further by the fact that density itself is a non-constant latent variable, making it more difficult to address this posterior correlation and resulting in slow mixing for the density-dependent model. Here, we demonstrate that by centering the density ('dens'), that is, try to make log(density+1) have a mean of 0, we can reduce the correlation between 'betaPhi' and 'phi0' and improve the mixing.
+We can't do this exactly, because density is time- and location-dependent, but we can strive for 0-mean on average.  From a preliminary run (in our case the one above), we can note the average of log(density+1) over time and space. For the specific dataset simulated in this vignette,  mean(log(density)+1) = 1.2.
+
+Now we can modify the model to center density such as: 
+```{r , eval=F, warning = FALSE, message = FALSE}
+for(t in 1:n.years1){
+  phi[1:n.cells,t] <-  1- (exp(- exp(phi0 + (log(dens[1:n.cells, t]+1) - dens_offset) * betaPhi)))
+}
+```
+
+Where the variable "dens_offset" can be provided as a *constant value* in the nimConstants list.
+
+```{r , eval=T, warning = FALSE, message = FALSE}
+mean(log(myNimbleOutput[[2]][,grep("dens", colnames(myNimbleOutput[[1]]))]+1))
+nimConstants$dens_offset <- 1.2
+```
+
+Now we can rewrite the model code to center  the density ('dens').
+
+```{r , eval=T, warning = FALSE, message = FALSE}
+
+modelCode1 <- nimbleCode({
+  ##--------------------------------------------------------------------------------------------
+  ##-----------------------------## 
+  ##------ SPATIAL PROCESS ------##  
+  ##-----------------------------##
+  tau ~ dgamma(0.001, 0.001)
+  logHabIntensity[1:numHabWindows] <- mu[1:numHabWindows]
+  sumHabInt <- log(sum(mu[1:numHabWindows]))
+  ## FIRST YEAR 
+  for(i in 1:M){
+    s[i, 1:2,1] ~ dbernppAC(
+      lowerCoords = lowerHabCoords[1:numHabWindows, 1:2],
+      upperCoords = upperHabCoords[1:numHabWindows, 1:2],
+      logIntensities = logHabIntensity[1:numHabWindows],
+      logSumIntensity = sumHabInt,
+      habitatGrid = habitatGrid[1:y.max,1:x.max],
+      numGridRows =  y.max,
+      numGridCols = x.max
+    )
+  }#i
+  
+  ## T>1 
+  for(t in 2:n.years){
+    for(i in 1:M){
+      s[i, 1:2, t] ~ dbernppACmovement_normal(lowerCoords = lowerHabCoords[1:numHabWindows, 1:2]
+                                                , upperCoords = upperHabCoords[1:numHabWindows, 1:2]
+                                                , s = s[i, 1:2, t - 1]
+                                                , sd = tau
+                                                , baseIntensities = mu[1:numHabWindows]
+                                                , habitatGrid =  habitatGrid[1:y.max,1:x.max]
+                                                , numGridRows = y.max
+                                                , numGridCols = x.max
+                                                , numWindows= numHabWindows
+      )
+    }#i
+  }#t
+  
+  
+
+  
+  ##--------------------------------------------------------------------------------------------
+  ##-------------------------------## 
+  ##----- DEMOGRAPHIC PROCESS -----## 
+  ##-------------------------------##    
+  ##INTERCEPT MORTALITY HR
+  ## FIRST YEAR INCLUSION PARAMETER 
+  gamma1 ~ dunif(0,1)
+  omeg1[1:2] <- c(1-gamma1, gamma1)
+  
+  ## TIME SPECIFIC INCLUSION PARAMETER 
+  for(t in 1:n.years1){
+    gamma[t] ~ dunif(0,1)
+  }#t
+  
+  
+
+  betaPhi ~ dunif(-10,10)
+  phi0 ~ dunif(-10,10)
+  
+  for(t in 1:n.years1){
+   # for(r in 1:n.cells){
+     phi[1:n.cells,t] <-  1- (exp(- exp(phi0 + (log(dens[1:n.cells, t]+1) - dens_offset) * betaPhi)))
+    #}
+  }
+  
+  
+  for(i in 1:M){ 
+    z[i,1] ~ dcat(omeg1[1:2]) 
+    for(t in 1:n.years1){
+      z[i,t+1] ~ dcatState1Dead( z = z[i,t]
+                                 , gamma = gamma[t]
+                                 , phiSpatial = phi[1:numHabWindows,t]
+                                 , s = s[i,1:2,t]
+                                 , habitatGrid = habitatGrid[1:y.max,1:x.max]
+      )
+      
+    }#i 								
+  }#t 
+  
+  ##---------------------------------------------------------------------------------------------   
+  ##-----------------------------##
+  ##----- DETECTION PROCESS -----## 
+  ##-----------------------------##
+  sigma ~ dunif(0,15)
+  p0 ~ dunif(0,1)
+  
+  for(t in 1:n.years){
+    for (i in 1:M){ 
+      # ALIVE 
+       y[i, 1:lengthYCombined,t] ~ dbinomLocal_normal(size = trials[1:n.traps],
+                                                 p0 = p0,
+                                                 s = s[i,1:2,t],
+                                                 sigma = sigma,
+                                                 trapCoords = trapCoords[1:n.traps,1:2],
+                                                 localTrapsIndices = trapIndex[1:n.cells,1:maxNBDets],
+                                                 localTrapsNum = nTraps[1:n.cells],
+                                                 resizeFactor = resizeFactor,
+                                                 habitatGrid = habitatIDDet[1:y.maxDet,1:x.maxDet],
+                                                 indicator = isAlive[i,t],
+                                                 lengthYCombined = lengthYCombined)
+      
+      
+    }#i
+  }#t
+  
+  ##---------------------------------------------------------------------------------------------										  
+  ##----------------------------------------## 
+  ##---------- DERIVED PARAMETERS ----------##
+  ##----------------------------------------##
+  for(i in 1:M){ 
+    isAlive[i,1] <- (z[i,1] == 2) 
+    for(t in 1:n.years1){
+      isAlive[i,t+1] <- (z[i,t+1] == 2) 
+    }
+  }
+  
+  for(t in 1:n.years){
+    N[t] <- sum(isAlive[1:M,t])
+  }#t
+  
+  # Density 
+  for (t in 1:n.years) {
+    dens[1:n.cells, t] <- calculateDensity(  s = s[1:M,1:2, t]
+                                           , habitatGrid = habitatGrid[1:y.maxDet, 1:x.maxDet]
+                                           , isAlive = isAlive[1:M,t]  
+                                           , numWindows = n.cells
+                                           , nIndividuals = M)#6
+  }
+  
+})
+
+
+```
+
+```{r , eval=F, warning = FALSE, message = FALSE}
+nimInits$phi0 <- -3 ## we modify the initial value.
+
+model1 <- nimbleModel( code = modelCode1,
+                      constants = nimConstants,
+                      data = nimData,
+                      inits = nimInits,
+                      check = F,
+                      calculate = F)
+model1$calculate()
+cmodel1 <- compileNimble(model1)
+cmodel1$calculate()
+MCMCconf1 <- configureMCMC(model = model1,
+                          monitors = c("p0","sigma","betaPhi","phi0", "N","dens",
+                                         "gamma","tau"),
+                          control = list(reflective = TRUE),
+                          thin = 1)
+
+###FIND WHICH Z NODES NEED TO BE REPLACED BY THE NEW SAMPLER. 
+samplerConfList <- unlist(lapply(MCMCconf1$getSamplers(),function(x) x$target))
+zNodes <- samplerConfList[grep("z",samplerConfList)]
+#find z nodes from the first year
+zNodes <- zNodes[-grep( ", 1]",zNodes)]
+
+MCMCconf1
+#remove samplers
+MCMCconf1$removeSamplers(zNodes)
+for(i in 1:length(zNodes)){
+  MCMCconf1$addSampler(target = zNodes[i], type = 'sampler_categorical_general1',
+                                  control=list("numCategories"= 3))
+}
+
+MCMC1 <- buildMCMC(MCMCconf1)
+cMCMC1 <- compileNimble(MCMC1, project = model1, resetFunctions = TRUE)
+# RUN THE MCMC 
+MCMCRuntime1 <- system.time(myNimbleOutput1 <- runMCMC( mcmc = cMCMC1,
+                                                             nburnin = 500,
+                                                             niter = 5000,# need much longer run time (60000)
+                                                             nchains = 2,
+                                                             samplesAsCodaMCMC = TRUE))
+
+```
+
+
+```{r , eval=F, include=FALSE , warning = FALSE, message = FALSE}
+setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
+save(myNimbleOutput1, MCMCRuntime1, file="samplesDensity1.RData")
+```
+
+
+## 3. PLOT POSTERIORS 
+
+```{r , eval=T, include=F, warning = FALSE, message = FALSE}
+setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
+load("samplesDensity1.RData")
+```
+
+
+
+```{r , eval=T, warning = FALSE, message = FALSE}
+#plot MCMC 
+chainsPlot(myNimbleOutput1, var=c("N[1]","N[2]","N[3]","N[4]","N[5]"), line=N)
+chainsPlot(myNimbleOutput1, var=c("p0","sigma","betaPhi","phi0","tau"), line=c(p0, sigma,betaPhi,phi0, tau))
+```
+
+We can compare the effective sample size of the the model without and without the density. 
+```{r , eval=T, warning = FALSE, message = FALSE}
+effectiveSize(myNimbleOutput1)[c("phi0","betaPhi")]
+effectiveSize(myNimbleOutput)[c("phi0","betaPhi")]
+```
+
+Correlation between phi0 and betaPhi also decreased. 
+```{r , eval=T, warning = FALSE, message = FALSE}
+cor(myNimbleOutput1[[1]][,c("betaPhi")], myNimbleOutput1[[1]][,c("phi0")])
+cor(myNimbleOutput[[1]][,c("betaPhi")], myNimbleOutput[[1]][,c("phi0")])
+```
+
+
 
 ## REFERENCES
