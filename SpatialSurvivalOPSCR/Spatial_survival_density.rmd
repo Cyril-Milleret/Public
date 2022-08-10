@@ -1,11 +1,11 @@
 ---
-title: "Appendix 6: Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival"
+title: "Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival"
 author: "Cyril Milleret"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: references.bib
 vignette: >
-  %\VignetteIndexEntry{Appendix 6: Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival}
+  %\VignetteIndexEntry{Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial density dependent survival}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

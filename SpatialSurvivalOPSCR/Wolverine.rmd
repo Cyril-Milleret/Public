@@ -1,11 +1,11 @@
 ---
-title: "Appendix 7: Wolverine empirical example"
+title: "Wolverine empirical example"
 author: "Cyril Milleret"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: references.bib
 vignette: >
-  %\VignetteIndexEntry{Appendix 7: Wolverine empirical example}
+  %\VignetteIndexEntry{Wolverine empirical example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
