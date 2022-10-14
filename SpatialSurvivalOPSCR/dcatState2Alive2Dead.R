@@ -1,0 +1,388 @@
+#' Density and random generation for the categorical distribution of state transition with one alive state and two dead state
+#' 
+#'
+#' The \code{dcatState2Alive2Dead} distribution is a NIMBLE custom distribution which can be used to model and simulate
+#' individual state transition. It can be used in cases with one alive state and two dead states. 
+#' If z_{i,t} = 1, individual i can be recruited (transition to state 2) with probability prob1To2_t, so z_{i,t+1} ~dcat(1- prob1To2_t, prob1To2_t, 0 , 0) where prob1To2_(t ) represent the probability of an “unborn” individual to be recruited.
+#' If z_{i,t} = 2, individual i can survive with probability \phi and remain z_{i,t+1}=2. If it does not survive, it can either die due to culling (or any other causes) and be recovered (transition to z_{i,t+1}=3) with probability hi, or die from other causes without being recovered (transition to z_{i,t+1} = 4) with probability w, so that z_{i,t+1} ~ dcat(0, \phi, h, w), where \phi = 1−h −w. 
+#' All individuals in dead states (z_{i,t} = 3 or 4) transition to z_{i,t+1} = 4, the absorbing state, with probability 1.
+#' If prob1To2, w, h or phi are assumed to be spatially heterogeneous, a vector of probability should be provided for prob1To2Hab, prob2To4Hab, prob2To3Hab or phiSpatial.
+#' if prob1To2, w, h or phi are assumed to be spatially homogeneous, a scalar should be provided for prob1To2, w, h or phi.
+#' 
+#' 
+#' @name dcatState2Alive2Dead 
+#' 
+#' @param x Scalar of the individual state z_{i,t+1}.
+#' @param n Integer specifying the number of realizations to generate.  Only n = 1 is supported.
+#' @param z Scalar of the initial individual state z_{i,t}
+#' @param h Scalar with probability h to transition from z_{i,t} = 2 to z_{i,t+1} = 3.
+#' @param w Scalar with probability w to transition from z_{i,t} = 2 to z_{i,t+1} = 4.
+#' @param phi Scalar with probability phi to transition from z_{i,t} = 2 to z_{i,t+1} = 2.
+#' @param prob2To3Hab Vector with probability h_r to transition from z_{i,t} = 2 to z_{i,t+1} = 3 for each cell r of the habitat. The vector should be of the length of the number of habitat windows in \code{\link{habitatGrid}} .
+#' @param prob2To4Hab Vector with probability w_r to transition from z_{i,t} = 2 to z_{i,t+1} = 4 for each cell r of the habitat. The vector should be of the length of the number of habitat windows in \code{\link{habitatGrid}} .
+#' @param phiSpatial Vector with probability phi_r to transition from z_{i,t} = 2 to z_{i,t+1} = 2 for each cell r of the habitat. The vector should be of the length of the number of habitat windows in \code{\link{habitatGrid}} .
+#' @param habitatGrid Matrix of habitat window indices and only used if arguements prob2To3Hab, prob2To4Hab or phiSpatial are used.
+#' Habitat window indices should match the order in \code{phiSpatial}, \code{prob2To3Hab}, or \code{prob2To4Hab}. 
+#' @param log Logical argument, specifying whether to return the log-probability of the distribution.
+#' @return 
+#' \code{dcatState2Alive2Dead} gives the (log) probability density of \code{x}. 
+#' \code{rcatState2Dead} gives a randomly generated individual states conditional on the initial state \code{z}.  
+#' 
+#' @author Cyril Milleret
+#' 
+#' 
+#' @references
+#' 
+#' @examples
+#' # Use the distribution in R
+#' 
+#'z <- 3
+#'prob1To2 <- 0.2
+#'prob2To3 <- 0.4
+#'prob2To4 <- 0.1
+#'prob2To5 <- 0.1
+#'
+#'prob3To4 <- 0.2
+#'prob3To5 <- 0.1
+#'
+#'
+#'lowerCoords <- matrix(c(0, 0, 1, 0, 0, 1, 1, 1), nrow = 4, byrow = TRUE)
+#'upperCoords <- matrix(c(1, 1, 2, 1, 1, 2, 2, 2), nrow = 4, byrow = TRUE)  
+#'logIntensities <- log(rep(1,4))
+#'logSumIntensity <- log(sum(c(1:4))) 
+#'habitatGrid <- matrix(c(1:4), nrow = 2, byrow = TRUE)
+#'numGridRows <- nrow(habitatGrid)
+#'numGridCols <- ncol(habitatGrid)
+#'s <- rbernppAC(n=1, lowerCoords, upperCoords, logIntensities, logSumIntensity, 
+#'               habitatGrid, numGridRows, numGridCols)
+#'
+#'## No spatial mortality 
+#'zPlusOne <- rcatState2Alive2Dead( z = z
+#'                                  , prob1To2 = prob1To2
+#'                                  , prob2To3 = prob2To3
+#'                                  , prob2To4 = prob2To4
+#'                                  , prob2To5 = prob2To5
+#'                                  , prob3To4 = prob3To4
+#'                                  , prob3To5 = prob3To5
+#'                                  
+#'                                  , s = s
+#'                                  , habitatGrid = habitatGrid)
+#'
+#'dcatState2Alive2Dead(  x = zPlusOne
+#'                       , z = z
+#'                       , prob1To2 = prob1To2
+#'                       , prob2To3 = prob2To3
+#'                       , prob2To4 = prob2To4
+#'                       , prob2To5 = prob2To5
+#'                       , prob3To4 = prob3To4
+#'                       , prob3To5 = prob3To5
+#'                       , s = s
+#'                       , habitatGrid = habitatGrid)
+#'
+#'##  With spatial mortality
+#'prob2To3Hab <- runif(length(habitatGrid),0,0.1)
+#'prob2To4Hab <- runif(length(habitatGrid),0,0.1)
+#'prob2To5Hab <- runif(length(habitatGrid),0,0.1)
+#'prob3To4Hab <- runif(length(habitatGrid),0,0.1)
+#'prob3To5Hab <- runif(length(habitatGrid),0,0.1)
+#'
+#'
+#'
+#'zPlusOne <- rcatState2Alive2Dead( z = z
+#'                                  , prob1To2 = prob1To2
+#'                                  , prob2To3Hab = prob2To3Hab
+#'                                  , prob2To4Hab = prob2To4Hab
+#'                                  , prob2To5Hab = prob2To5Hab
+#'                                  , prob3To4Hab = prob3To4Hab
+#'                                  , prob3To5Hab = prob3To5Hab
+#'                                  , s = s
+#'                                  , habitatGrid = habitatGrid)
+#'
+#'dcatState2Alive2Dead(  x = zPlusOne
+#'                       , z = z
+#'                       , prob1To2 = prob1To2
+#'                       , prob2To3Hab = prob2To3Hab
+#'                       , prob2To4Hab = prob2To4Hab
+#'                       , prob2To5Hab = prob2To5Hab
+#'                       , prob3To4Hab = prob3To4Hab
+#'                       , prob3To5Hab = prob3To5Hab
+#'                       , s = s
+#'                       , habitatGrid = habitatGrid)
+#' 
+#' 
+NULL
+#' @rdname dcatState2Alive2Dead
+#' @export
+
+
+
+#### 1.Density function ####
+dcatState2Alive2Dead  <- nimbleFunction(run = function( x = double(0)
+                                                        , z = double(0)
+                                                        , prob1To2 = double(0, default = -999)
+                                                        , prob1To2Hab = double(1)
+                                                        , prob2To3 = double(0, default = -999)
+                                                        , prob2To3Hab = double(1)
+                                                        , prob2To4 = double(0, default = -999)
+                                                        , prob2To4Hab = double(1)
+                                                        , prob3To4 = double(0, default = -999)
+                                                        , prob3To4Hab = double(1)
+                                                        , prob2To5 = double(0, default = -999)
+                                                        , prob2To5Hab = double(1)
+                                                        , prob3To5 = double(0, default = -999)
+                                                        , prob3To5Hab = double(1)
+                                                        , s = double(1)
+                                                        , habitatGrid = double(2)
+                                                        , log = integer(0, default = 0)){
+  # Return type declaration
+  returnType(double(0))
+  # z=1
+  if(z == 1){
+    
+    if(prob1To2 == -999){
+      sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+      indProb1To2 <- prob1To2Hab[sID]
+      
+    }else{
+      ## EXTRACT LOCATION OF THE ID
+      indProb1To2 <- prob1To2
+    }
+    
+    logLikelihood <- dcat(x, prob = c(1 - indProb1To2, indProb1To2), log=1)
+    if(log == 1){return(logLikelihood)}else{return(exp(logLikelihood))}
+  }
+  # z=2
+  if(z == 2){
+    ## EXTRACT LOCATION OF THE ID
+    sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+    #prob2To3
+    if(prob2To3== -999){
+      indProb2To3 <- prob2To3Hab[sID]
+    }else{
+      indProb2To3 <- prob2To3
+    }
+    #prob2To4
+    if(prob2To4 == -999){
+      indProb2To4 <- prob2To4Hab[sID]
+    }else{
+      indProb2To4 <- prob2To4
+    }
+    #prob2To5
+    if(prob2To5 == -999){
+      indProb2To5 <- prob2To5Hab[sID]
+    }else{
+      indProb2To5 <- prob2To5
+    }
+    
+    probAlive <- 1-(indProb2To4+indProb2To5)
+    
+    indProb2To2 <- (1-indProb2To3) * probAlive 
+    indProb2To3 <- indProb2To3 * probAlive 
+    logLikelihood <- dcat(x, prob = c(0, indProb2To2, indProb2To3, indProb2To4, indProb2To5), log=1)
+    
+    if(log == 1){return(logLikelihood)}else{return(exp(logLikelihood))}
+  }
+  # z=3
+  if(z == 3){
+    ## EXTRACT LOCATION OF THE ID
+    sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+   
+    #prob3To4
+    if(prob3To4 == -999){
+      indProb3To4 <- prob3To4Hab[sID]
+    }else{
+      indProb3To4 <- prob3To4
+    }
+    #prob3To5
+    if(prob3To5 == -999){
+      indProb3To5 <- prob3To5Hab[sID]
+    }else{
+      indProb3To5 <- prob3To5
+    }
+    
+    indProb3To3 <- 1-(indProb3To4+indProb3To5)
+    
+    logLikelihood <- dcat(x, prob = c(0, 0, indProb3To3, indProb3To4, indProb3To5), log=1)
+    
+    if(log == 1){return(logLikelihood)}else{return(exp(logLikelihood))}
+  }
+  
+  
+  # z=4|5
+  if(z == 4 | z == 5 ){
+    logLikelihood <- dcat(x, prob = c(0, 0, 0, 0, 1), log=1)
+    if(log == 1){return(logLikelihood)}else{return(exp(logLikelihood))}
+  }
+  
+  
+})
+
+
+NULL
+#' @rdname rcatState2Alive2Dead
+#' @export
+#' 
+#### 2.Sampling function ####
+rcatState2Alive2Dead <- nimbleFunction(run = function( n = integer(0)
+                                                       , z = double(0)
+                                                       , prob1To2 = double(0, default = -999)
+                                                       , prob1To2Hab = double(1)
+                                                       , prob2To3 = double(0, default = -999)
+                                                       , prob2To3Hab = double(1)
+                                                       , prob2To4 = double(0, default = -999)
+                                                       , prob2To4Hab = double(1)
+                                                       , prob3To4 = double(0, default = -999)
+                                                       , prob3To4Hab = double(1)
+                                                       , prob2To5 = double(0, default = -999)
+                                                       , prob2To5Hab = double(1)
+                                                       , prob3To5 = double(0, default = -999)
+                                                       , prob3To5Hab = double(1)
+                                                       , s = double(1)
+                                                       , habitatGrid = double(2)
+){
+  # Return type declaration
+  returnType(double(0))
+  # z=1 
+  if(z == 1){
+    if(prob1To2 == -999){
+      sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+      indProb1To2 <- prob1To2Hab[sID]
+    }else{
+      ## EXTRACT LOCATION OF THE ID
+      indProb1To2 <- prob1To2
+    }
+    state <- rcat(1, prob = c(1 - indProb1To2, indProb1To2))
+    return(state)
+  }
+  
+  # z=2 
+  if(z == 2){
+    ## EXTRACT LOCATION OF THE ID
+    sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+    #prob2To3
+    if(prob2To3== -999){
+      indProb2To3 <- prob2To3Hab[sID]
+    }else{
+      indProb2To3 <- prob2To3
+    }
+    #prob2To4
+    if(prob2To4 == -999){
+      indProb2To4 <- prob2To4Hab[sID]
+    }else{
+      indProb2To4 <- prob2To4
+    }
+    #prob2To5
+    if(prob2To5 == -999){
+      indProb2To5 <- prob2To5Hab[sID]
+    }else{
+      indProb2To5 <- prob2To5
+    }
+    
+    probAlive <- 1-(indProb2To4+indProb2To5)
+    
+    indProb2To2 <- (1-indProb2To3) * probAlive 
+    indProb2To3 <- indProb2To3 * probAlive 
+    
+    
+    state <- rcat(1, prob = c(0, indProb2To2, indProb2To3, indProb2To4, indProb2To5))
+    return(state)
+  }
+  
+  # z=3 
+  if(z == 3){
+    ## EXTRACT LOCATION OF THE ID
+    sID <- habitatGrid[trunc(s[2])+1, trunc(s[1])+1]
+    
+    #prob3To4
+    if(prob3To4 == -999){
+      indProb3To4 <- prob3To4Hab[sID]
+    }else{
+      indProb3To4 <- prob3To4
+    }
+    #prob3To5
+    if(prob3To5 == -999){
+      indProb3To5 <- prob3To5Hab[sID]
+    }else{
+      indProb3To5 <- prob3To5
+    }
+    
+    indProb3To3 <- 1-(indProb3To4+indProb3To5)
+    
+    state <- rcat(1, prob = c(0, 0, indProb3To3, indProb3To4, indProb3To5))
+    return(state)
+    
+  }
+  # z=4|5
+  if(z == 4 | z == 5 ){
+    state <- 5
+    return(state)
+  }
+  
+})
+
+#### 3.Registration ####
+registerDistributions(list(
+  dcatState2Alive2Dead = list(
+    BUGSdist = "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab    , prob2To3       , prob2To3Hab    , prob2To4       , prob2To4Hab    , prob2To5       , prob2To5Hab    , prob3To4       , prob3To4Hab    , prob3To5       , prob3To5Hab    , s, habitatGrid)",
+    # question: how we can make the distribution work when "vec" is not in used and we dont provide habtiatGrid? We need to give habitatGrid=double(2)...
+    Rdist = c( "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               
+               
+               
+               
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2       , prob1To2Hab = s, prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               
+               
+               
+               
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4       , prob3To4Hab = s, prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               
+               
+               
+               
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5       , prob3To5Hab = s, s, habitatGrid)",
+               
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4       , prob2To4Hab = s, prob2To5       , prob2To5Hab = s, prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3       , prob2To3Hab = s, prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4 = -999, prob2To4Hab    , prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)",
+               "dcatState2Alive2Dead(z, prob1To2 = -999, prob1To2Hab    , prob2To3 = -999, prob2To3Hab    , prob2To4       , prob2To4Hab = s, prob2To5 = -999, prob2To5Hab    , prob3To4 = -999, prob3To4Hab    , prob3To5 = -999, prob3To5Hab    , s, habitatGrid)"
+               
+    ),
+    types = c( "value = double(0)", "z = double(0)","prob1To2 = double(0)", "prob1To2Hab = double(1)", "prob2To3 = double(0)","prob2To3Hab = double(1)" , "prob2To4 = double(0)", "prob2To4Hab = double(1)",
+               "prob2To5 = double(0)", "prob2To5Hab = double(1)", 
+               "prob3To4 = double(0)","prob3To4Hab = double(1)" , "prob3To5 = double(0)", "prob3To5Hab = double(1)",
+               "s = double(1)", "habitatGrid = double(2)"
+    ),
+    discrete = TRUE,
+    mixedSizes = TRUE,
+    pqAvail = FALSE
+  )))
+
+

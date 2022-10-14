@@ -27,7 +27,7 @@ library(coda)
 
 ## Functions will be uploaded into nimbleSCR
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Dead.R")
+source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive1Dead.R")
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/calculateDensity.R")
 
 ```
@@ -169,9 +169,9 @@ modelCode <- nimbleCode({
   for(i in 1:M){ 
     z[i,1] ~ dcat(omeg1[1:2]) 
     for(t in 1:n.years1){
-      z[i,t+1] ~ dcatState1Dead( z = z[i,t]
-                                 , gamma = gamma[t]
-                                 , phiSpatial = phi[1:numHabWindows,t]
+      z[i,t+1] ~ dcatState1Alive1Dead( z = z[i,t]
+                                 , prob1To2 = gamma[t]
+                                 , prob2To3Hab = 1-phi[1:numHabWindows,t]
                                  , s = s[i,1:2,t]
                                  , habitatGrid = habitatGrid[1:y.max,1:x.max]
       )
@@ -543,12 +543,13 @@ modelCode1 <- nimbleCode({
   }
   
   
+  
   for(i in 1:M){ 
     z[i,1] ~ dcat(omeg1[1:2]) 
     for(t in 1:n.years1){
-      z[i,t+1] ~ dcatState1Dead( z = z[i,t]
-                                 , gamma = gamma[t]
-                                 , phiSpatial = phi[1:numHabWindows,t]
+      z[i,t+1] ~ dcatState1Alive1Dead( z = z[i,t]
+                                 , prob1To2 = gamma[t]
+                                 , prob2To3Hab = 1-phi[1:numHabWindows,t]
                                  , s = s[i,1:2,t]
                                  , habitatGrid = habitatGrid[1:y.max,1:x.max]
       )
@@ -611,7 +612,7 @@ modelCode1 <- nimbleCode({
 
 ```
 
-```{r , eval=F, warning = FALSE, message = FALSE}
+```{r , eval=T, warning = FALSE, message = FALSE}
 nimInits$phi0 <- -3 ## we modify the initial value.
 
 model1 <- nimbleModel( code = modelCode1,
