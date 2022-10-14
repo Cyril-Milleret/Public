@@ -1,5 +1,19 @@
-sampler_categorical_general1 <- nimbleFunction(
-  name = 'sampler_categorical1',
+#' @title NIMBLE function to calculate the density of individuals alive in each habitat cell.
+#'
+#' @description
+#' \code{sampler_categorical_general} The categorical sampler performs Gibbs sampling for a single node, which must follow a categorical (dcat) distribution.
+#' 
+#' @param model (uncompiled) model on which the MCMC is to be run. 
+#' @param mvSaved \code{modelValues} object to be used to store MCMC samples. 
+#' @param target node(s) on which the sampler will be used.
+#' @param control named list that controls the precise behavior of the sampler. the number of categories can be provide list("numCategories"= 4) 
+#'  
+#' @author Daniel Turek
+#'
+#' @examples
+#'
+sampler_categorical_general <- nimbleFunction(
+  name = 'sampler_categorical',
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {
     ## node list generation

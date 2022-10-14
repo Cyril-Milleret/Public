@@ -1,11 +1,11 @@
 ---
-title: "Estimating spatial survival with OPSCR models and nimbleSCR"
+title: "Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial survival"
 author: "Cyril Milleret"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: references.bib
 vignette: >
-  %\VignetteIndexEntry{Estimating spatial survival with OPSCR models and nimbleSCR}
+  %\VignetteIndexEntry{Using nimbleSCR to simulate from and fit Bayesian OPSCR models with spatial survival}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -15,16 +15,21 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width = 7, fig.height = 7) 
 ```
 
-In this vignette, we demonstrate how to use the nimbleSCR [@nimbleSCR] and NIMBLE packages [@de2017programming;@nimbleSoftware2020] to simulate open-population spatial capture-recapture (OPSCR) data and fit flexible and efficient Bayesian OPSCR models with spatially hetereogenous mortality. We assume that we have access to detections of individuals alive but also dead recovery locations [@Dupont2021]. The OPSCR model is parameterized using a hazard rate formulation and two competing cause of mortality. For one cause of mortality (e.g. culling), we assume that all mortality events are recovered with an associated death location. See details in Milleret et al 2022 Estimating spatially variable and density-dependent survival using open-population spatial capture-recapture models; Ecology
+In this vignette, we demonstrate how to use the nimbleSCR [@nimbleSCR] and NIMBLE packages [@de2017programming;@nimbleSoftware2020] to simulate open-population spatial capture-recapture (OPSCR) data and fit flexible and efficient Bayesian OPSCR models with spatially hetereogenous mortality. We assume that we have access to detections of individuals alive but also dead recovery locations [@Dupont2021]. The OPSCR model is parameterized using a hazard rate formulation and two competing cause of mortality. For one cause of mortality (e.g. culling), we assume that all mortality events are recovered with an associated death location. See details in Milleret et al....
 
 ```{r, warning = FALSE, message = FALSE}
+rm(list=ls())
 ## Load packages
 library(nimble)
 library(nimbleSCR)
 library(basicMCMCplots)
 
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general.R")
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive2Dead.R")
+source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
+rm(dcatState2Alive2Dead)
+rm(rcatState2Alive2Dead)
+
+source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState2Alive2Dead.R")
+#source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive2Dead.R")
 
 
 ```
@@ -32,7 +37,7 @@ source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPS
 ## 1. Simulate SCR data
 ### 1.1 Habitat and trapping grid
 
-As an example, we create a $16 \times 16$ habitat grid with a resolution of 4 for each dimension. On the habitat, we center a $16 \times 16$ trapping grid with a resolution of 1 for each dimension.   
+As an example, we create a $80 \times 100$ habitat grid with a resolution of 10 for each dimension. On the habitat, we center a $60 \times 80$ trapping grid with also a resolution of 10 for each dimension, leaving an untrapped perimeter (buffer) with a width of 20 distance units on each side of the grid.   
 
 ```{r , warning = FALSE, message = FALSE}
 ## Create habitat grid
@@ -65,7 +70,7 @@ habitatMask <- matrix(1, nrow = 4, ncol= 4, byrow = TRUE)
 
 ### 1.2 Rescale coordinates
 
-To implement the local evaluation approach when fitting the SCR model (see @Milleret2019 and @Turek2021 for further details), we need to rescale the habitat and trapping grid coordinates so that each habitat cell is of dimension $1 \times 1$. We also need to identify the lower and upper coordinates of each habitat cell using the 'getWindowCoords' function.
+To implement the local evaluation approach when fitting the SCR model (see @Milleret2019 and @Turek2021 for further details), we need to rescale the habitat and trapping grid coordinates so that each habitat cell is of dimension $1 \times 1$. We also need to identify the lower and upper coordinates of each habitat cell using the 'getLowAndUpCoords' function.
 
 ```{r , warning = FALSE, message = FALSE}
 ## Rescale coordinates
@@ -81,36 +86,31 @@ lowerAndUpperCoords <- getWindowCoords(
 
 ```
 
-We set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen.
+We also set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen.
 
 ```{r , warning = FALSE, message = FALSE}
 trapLocal <- getLocalObjects(habitatMask = habitatMask,
                              coords = scaledObjects$coordsDataScaled,
                              dmax = 1,
                              resizeFactor = 1,
-                             plot.check = F
+                             plot.check = TRUE
 )
 ```
 
-We create the local objects to perform the local evaluation for the dead recovery locations using the 'getLocalObjects' function. In this model, we assume that dead recoveries can be detected anywhere in the spatial domain (including the buffer). We therefore use the coordinates of the entire spatial domain (and not only the detector coordinates) to define the local objects.
+We create the local objects to perform the local evaluation for the dead recovery locations using the 'getLocalObjects' function.  We assume that dead recoveries from one cause mortality are also detected within the buffer area. We therefore use the coordinates of the entire spatial domain (and not only the detector coordinates) to define the local objects. 
 
 ```{r , warning = FALSE, message = FALSE}
 deadObsLocal <- getLocalObjects(habitatMask = habitatMask,
                              coords = scaledObjects$coordsHabitatGridCenterScaled,
                              dmax = 2,
                              resizeFactor = 1,
-                             plot.check = F
+                             plot.check = TRUE
 )
 
 ```
 
 ### 1.3 Define model code
-Here, we built an OPSCR model assuming a markovian and bivariate distribution of the movement of individual activity centers across occasions. Concerning the demographic model, we build a multi-state model where each individual life history is represented by a succession of up to four discrete states $z_{i,t}$: 1) “unborn” if the individual has not been recruited in the population; 2) “alive” if it is alive; 3) “culled” if it was culled and recovered dead between the start of the previous and current occasion; or 4) “dead”: if it has died but was not recovered dead.
-
-
-
-
-
+Note that we do not provide 'detNums' and 'detIndices' arguments in the 'dbinomLocal_normal' function as we wish to use this model to simulate data (see '?dbinomLocal_normal' for further details). 
 
 ```{r , warning = FALSE, message = FALSE}
 modelCode <- nimbleCode({
@@ -154,43 +154,65 @@ modelCode <- nimbleCode({
   ##-------------------------------## 
   ##----- DEMOGRAPHIC PROCESS -----## 
   ##-------------------------------##    
-  ## INTERCEPT MORTALITY HAZARD RATES
-  mhH ~ dunif(-10, 10)
-  mhW ~ dunif(-10, 10)
+  ## INTERCEPT MORTALITY HR
+  ## for the 2 states alive
+  for(c in 1:2){
+    mhH[c] ~ dunif(-10, 10)
+    mhW[c] ~ dunif(-10, 10)
+    
+    ## CAUSE SPECIFIC SLOPE MORTALITY 
+    betaH[c] ~ dunif(-10,10)
+    betaW[c] ~ dunif(-10,10)
+  }
   
-  ## CAUSE SPECIFIC SLOPE MORTALITY 
-  betaH ~ dunif(-10,10)
-  betaW ~ dunif(-10,10)
-  
+  #transition probability from one live state to the other 
+  prob2To3 ~ dunif(0,1)
   ## FIRST YEAR INCLUSION PARAMETER 
-  gamma1 ~ dunif(0,1)
-  omeg1[1:2] <- c(1-gamma1, gamma1)
+  #gamma1 ~ dunif(0,1)
+  omeg1[1:3] ~ ddirch(alpha[1:3])  
   
   ## TIME SPECIFIC INCLUSION PARAMETER 
   for(t in 1:n.years1){
     gamma[t] ~ dunif(0,1)
   }#t
   
-  ## SPATIAL SURVIVAL
-  ## SURVIVAL (CAUSE-SPECIFIC MORTALITY SPATIALLY EXPLICIT)
-  mhH1[1:numHabWindows] <- exp(mhH + betaH*habCov[1:numHabWindows])
-  mhW1[1:numHabWindows] <- exp(mhW + betaW*habCov[1:numHabWindows])
+  ## SPATIAL VITAL RATES 
+  ## RECRUITMENT CONSTANT OVER SPACE 
+  # for(t in 1:n.years1){
+  #   for(r in 1:numHabWindows){
+  #     gamma2[r,t] <- gamma[t] 
+  #   }
+  # }
   
-  ## DERIVE MORTALITY AND SURVIVAL PROBABILITIES 
-  phi[1:numHabWindows] <- exp(-(mhH1[1:numHabWindows] + mhW1[1:numHabWindows]))
-  h[1:numHabWindows] <-  (1 - phi[1:numHabWindows])* (mhH1[1:numHabWindows]/(mhH1[1:numHabWindows] +
-                         mhW1[1:numHabWindows]))
-  w[1:numHabWindows] <-  (1 - phi[1:numHabWindows])* (mhW1[1:numHabWindows]/(mhH1[1:numHabWindows] +
-                         mhW1[1:numHabWindows]))
+    ## for the 2 states alive
+
+    for(c in 1:2){
+
+      ## SURVIVAL (CAUSE-SPECIFIC MORTALITY SPATIALLY EXPLICIT)
+      mhH1[1:numHabWindows,c] <- exp(mhH[c] + betaH[c]*habCov[1:numHabWindows])
+      mhW1[1:numHabWindows,c] <- exp(mhW[c] + betaW[c]*habCov[1:numHabWindows])
+      
+      # derive mortality and surival probabilities 
+      phi[1:numHabWindows,c] <- exp(-(mhH1[1:numHabWindows,c] + mhW1[1:numHabWindows,c]))
+      h[1:numHabWindows,c] <-  (1 - phi[1:numHabWindows,c])* (mhH1[1:numHabWindows,c]/(mhH1[1:numHabWindows,c] +
+                             mhW1[1:numHabWindows,c]))
+      w[1:numHabWindows,c] <-  (1 - phi[1:numHabWindows,c])* (mhW1[1:numHabWindows,c]/(mhH1[1:numHabWindows,c] +
+                             mhW1[1:numHabWindows,c]))
+      
+      
+    }
   
   ## STATE TRANSITION 
   for(i in 1:M){ 
-    z[i,1] ~ dcat(omeg1[1:2]) 
+    z[i,1] ~ dcat(omeg1[1:3]) 
     for(t in 1:n.years1){
-      z[i,t+1] ~ dcatState1Alive2Dead(   z = z[i,t]
+      z[i,t+1] ~ dcatState2Alive2Dead(   z = z[i,t]
                                  , prob1To2 = gamma[t]
-                                 , prob2To3Hab = h[1:numHabWindows]
-                                 , prob2To4Hab = w[1:numHabWindows]
+                                 , prob2To3 = prob2To3
+                                 , prob2To4Hab = h[1:numHabWindows,1]
+                                 , prob2To5Hab = w[1:numHabWindows,1]
+                                 , prob3To4Hab = h[1:numHabWindows,2]
+                                 , prob3To5Hab = w[1:numHabWindows,2]
                                  , s = s[i,1:2,t]
                                  , habitatGrid = habitatGrid[1:y.max,1:x.max])
     }#i 								
@@ -222,17 +244,17 @@ modelCode <- nimbleCode({
       
       ## DEAD RECOVERY 
       y.dead[i, 1:3,t] ~ dbernppLocalDetection_normal(
-                    lowerCoords= lowerHabCoords[1:numHabWindows,1:2]
-                  , upperCoords= upperHabCoords[1:numHabWindows,1:2]
-                  , s = s[i,1:2,t]
-                  , sd = sigma
-                  , baseIntensities = detReco[1:numHabWindows]
-                  , habitatGridLocal=habitatGridLocal[1:y.max,1:x.max]
-                  , resizeFactor=resizeFactor
-                  , localObsWindowIndices = localObsWindowIndices[1:numHabWindows,1:maxNBDetsReco]
-                  , numLocalObsWindows = numLocalObsWindows[1:numHabWindows]
-                  , numWindows = numHabWindows
-                  , indicator = z[i,t]==3
+          lowerCoords= lowerHabCoords[1:numHabWindows,1:2]
+        , upperCoords= upperHabCoords[1:numHabWindows,1:2]
+        , s = s[i,1:2,t]
+        , sd = sigma
+        , baseIntensities = detReco[1:numHabWindows]
+        , habitatGridLocal=habitatGridLocal[1:y.max,1:x.max]
+        , resizeFactor=resizeFactor
+        , localObsWindowIndices = localObsWindowIndices[1:numHabWindows,1:maxNBDetsReco]
+        , numLocalObsWindows = numLocalObsWindows[1:numHabWindows]
+        , numWindows = numHabWindows
+        , indicator = z[i,t]== 4
       )
     }#i
   }#t
@@ -242,9 +264,9 @@ modelCode <- nimbleCode({
   ##---------- DERIVED PARAMETERS ----------##
   ##----------------------------------------##
   for(i in 1:M){ 
-    isAlive[i,1] <- (z[i,1] == 2) 
+    isAlive[i,1] <- (z[i,1] == 2)  + (z[i,1] == 3) 
     for(t in 1:n.years1){
-      isAlive[i,t+1] <- (z[i,t+1] == 2) 
+      isAlive[i,t+1] <- (z[i,t+1] == 2) + (z[i,t+1] == 3) 
     }
   }
   for(t in 1:n.years){
@@ -259,20 +281,20 @@ modelCode <- nimbleCode({
 The model formulation uses data augmentation to derive N estimates [@Royle2012]. We therefore need to choose the total number of individuals *M* (detected + augmented).
 
 ```{r , warning = FALSE, message = FALSE}
-M <- 500
+M <- 650
 
 ## ASSIGN SIMULATED VALUES 
 p0 <- 0.2
 sigma <- 0.4
 
-## EXPECTED NUMBER OF INDIVIDUALS ALIVE (z=2) AT t=1
-n.individualsT1 <- 200
+#expected number of individuals alive (z=2)at t=1
+n.individualsT1 <- 70
 n.years <- 5
-mhW <- -2
-mhH <- -2
-
-betaH <- 1
-betaW <- -1
+mhW <- c(-2,-1)
+mhH <- c(-2,-1)
+prob2To3 <- c(0.5)
+betaH <- c(1,0.5)
+betaW <- c(-1,-0.5)
 tau <- 1.2
 
 recruitment <- 0.3  
@@ -299,18 +321,22 @@ habCovImage[] <- habCov[lowerAndUpperCoords$habitatGrid]
 image(habCovImage)
 
 ### plot expected surv/mortality prob as a function of covariate 
-mhH1 <- exp(mhH + betaH*habCov)
-mhW1 <- exp(mhW + betaW*habCov)
+mhH1 <- mhW1 <- phi <- h <- w <- array(NA,c(length(habCov) ,2)) 
+for(c in 1:2){
+mhH1[,c] <- exp(mhH[c] + betaH[c]*habCov)
+mhW1[,c] <- exp(mhW[c] + betaW[c]*habCov)
   
-phi <- exp(-(mhH1 + mhW1))
-h <-  (1-phi) * (mhH1/(mhH1 + mhW1))
-w <-  (1-phi) * (mhW1/(mhH1 + mhW1))
+phi[,c] <- exp(-(mhH1[,c] + mhW1[,c]))
+h[,c] <-  (1-phi[,c]) * (mhH1[,c]/(mhH1[,c] + mhW1[,c]))
+w[,c] <-  (1-phi[,c]) * (mhW1[,c]/(mhH1[,c] + mhW1[,c]))
   
-plot(phi ~ habCov, ylim=c(0,1), type="b", ylab="Probability")
-points(h ~ habCov, col="red", type="b")
-points(w ~ habCov, col="blue", type="b")
+plot(phi[,c] ~ habCov, ylim=c(0,1), type="b", ylab="Probability")
+points(h[,c] ~ habCov, col="red", type="b")
+points(w[,c] ~ habCov, col="blue", type="b")
 legend("topright", legend=c("phi","h","w"), 
        col=c("black","red","blue"), lty=c(1,1,1))
+}
+
 ```
 
 
@@ -346,7 +372,8 @@ nimConstants <- list(M = M,
                      habitatIDDet = trapLocal$habitatGrid,
                      lengthYCombined = lengthYCombined,
                      numHabWindows = dim(lowerAndUpperCoords$lowerHabCoords)[1],
-                     maxNBDetsReco = deadObsLocal$numLocalIndicesMax)
+                     maxNBDetsReco = deadObsLocal$numLocalIndicesMax,
+                     alpha = rep(1,3))
 
 
 
@@ -369,9 +396,10 @@ nimInits <- list(sigma = sigma,
                  p0=p0,
                  tau=tau,
                  gamma = gamma[2:n.years],
-                 gamma1 = gamma[1],
+                 omeg1 = c(1-gamma[1],gamma[1]/2,gamma[1]/2),
                  mhW = mhW,
                  mhH = mhH,
+                 prob2To3 = prob2To3,
                  betaH = betaH,
                  betaW = betaW) 
 ```
@@ -390,15 +418,16 @@ model <- nimbleModel( code = modelCode,
 ```
 
 
-### 1.7 Simulate SCR data from the NIMBLE model
+### 1.7 Simualte SCR data from the NIMBLE model
 
-We first need to obtain the list of nodes that will be simulated. We used the 'getDependencies' function from NIMBLE. Using the 'simulate' function from NIMBLE, we will then simulate the activity center (AC) locations ('s'), the state of the individual ('z') and SCR observation data ('y'; 'y.dead') 
+We first need to obtain the list of nodes that will be simulated. We used the 'getDependencies' function from NIMBLE. Using the 'simulate' function from NIMBLE, we will then simulate the activity center (AC) locations ('s'), the state of the individual ('z') and SCR observation data ('y') given the values we provided for 'p0', 'sigma' and 'psi'.
 
 
 ```{r , warning = FALSE, message = FALSE}
 # FIRST WE GET THE NODES TO SIMULATE
-nodesToSim <- model$getDependencies(c("p0","sigma","mhW", "mhH","mu",
-                                      "gamma","tau","gamma1","betaH",
+#nodesToSim <- model$getDependencies(c("s", "z"), self=T)
+nodesToSim <- model$getDependencies(c("p0","sigma","mhW", "mhH","mu","prob2To3",
+                                      "gamma","tau","alpha","betaH",
                                        "betaW"),
                                       self = F,
                                       downstream = T,
@@ -406,21 +435,54 @@ nodesToSim <- model$getDependencies(c("p0","sigma","mhW", "mhH","mu",
 # THEN WE SIMULATE THOSE NODES 
 set.seed(1)
 model$simulate(nodesToSim, includeData = FALSE)
+
+  # 
+# 
+# t=1
+# i=1
+#                          rcatState2Dead(n=1
+#                                  , 
+#                                  zit = model$z[i,t]
+#                                  , 
+#                                  gamma = model$gamma[t]#gamma2[1:numHabWindows,t]
+#                                  , 
+#                                  gammaVec = model$s[i,1:2,t]
+#                                  , 
+#                                  h = -999
+#                                  , 
+#                                  hVec =  model$h[1:numHabWindows]
+#                                  , 
+#                                  w = -999
+#                                  , 
+#                                  wVec = model$w[1:numHabWindows]
+#                                  , 
+#                                  phi = -999
+#                                  , 
+#                                  phiVec = model$phi[1:numHabWindows]
+#                                  , 
+#                                  s = model$s[i,1:2,t]
+#                                  , 
+#                                  habIndex = model$habitatGrid[1:y.max,1:x.max]
+#                                  )
+#  	
+
+
+
 ```
 
 After running 'simulate', the simulated data are stored in the 'model' object. For example, we can access the simulated 'z' and check how many individuals were considered alive and recovered at each time step :
 
 ```{r , warning = FALSE, message = FALSE}
-N <- apply(model$z,2,function(x)sum(x==2))
+N <- apply(model$z,2,function(x)sum(x %in% c(2,3) ))
 N
 
-N.recoveredDead <- apply(model$z,2,function(x)sum(x==3))
+N.recoveredDead <- apply(model$z,2,function(x)sum(x==4))
 N.recoveredDead
 ```
 
 ## 2. RUN MCMC WITH NIMBLE
 
-Here, we build the NIMBLE model again using the simulated 'y' and 'y.dead' as data. For simplicity, we used the simulated 'z' as initial values. Then we can fit the OPSCR model with the simulated 'y' and 'y.dead' datasets.  
+Here, we build the NIMBLE model again using the simulated 'y' and 'y.dead' as data. For simplicity, we used the simulated 'z' as initial values. Then we can fit the SCR model with the simulated 'y' and 'y.dead' data set.  
 
 ```{r , warning = FALSE, message = FALSE}
 myZ <- model$z
@@ -447,31 +509,32 @@ model <- nimbleModel( code = modelCode,
                       check = F,
                       calculate = F)
 model$calculate()
-
+which(is.infinite(model$logProb_z),arr.ind = T)
+z[61,]
 ```
 
-```{r , eval=F, warning = FALSE, message = FALSE}
+```{r , eval=T, warning = FALSE, message = FALSE}
 cmodel <- compileNimble(model)
 cmodel$calculate()
 MCMCconf <- configureMCMC(model = model,
-                          monitors = c("p0","sigma","mhW","mhH", "N",
-                                         "gamma","tau","betaH","betaW"),
+                          monitors = c("p0","sigma","mhW","mhH", "N","prob2To3",
+                                         "alpha","tau","betaH","betaW"),
                           control = list(reflective = TRUE),
                           thin = 1)
-## WE NEED TO SET A CATEGORICAL SAMPLER FOR THE NODES USED BY dcatState1Alive2Dead
-## FIND WHICH Z NODES NEED TO BE REPLACED BY THE NEW SAMPLER. 
+## WE NEED TO SET THE NODES FOR WHICH dcatState2Dead IS USED AS A CATEGORICAL SAMPLER
+###FIND WHICH Z NODES NEED TO BE REPLACED BY THE NEW SAMPLER. 
 samplerConfList <- unlist(lapply(MCMCconf$getSamplers(),function(x) x$target))
 zNodes <- samplerConfList[grep("z",samplerConfList)]
-## FIND Z NODES FROM THE FIRST YEAR
+#find z nodes from the first year
 zNodes <- zNodes[-grep( ", 1]",zNodes)]
 
 MCMCconf
 #remove samplers
 MCMCconf$removeSamplers(zNodes)
-MCMCconf$addSampler(target = zNodes,
-                      type = 'sampler_categorical_general',
-                      scalarComponents = TRUE,
-                      control = list("numCategories"= 4))
+for(i in 1:length(zNodes)){
+  MCMCconf$addSampler(target = zNodes[i], type = 'sampler_categorical_general1',
+                                  control=list("numCategories"= 5))
+}
 
 MCMC <- buildMCMC(MCMCconf)
 cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
@@ -482,17 +545,17 @@ MCMCRuntime <- system.time(myNimbleOutput <- runMCMC( mcmc = cMCMC,
                                                              nchains = 3,
                                                              samplesAsCodaMCMC = TRUE))
 setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
-save(myNimbleOutput, MCMCRuntime, file="samples.RData")
+save(myNimbleOutput, MCMCRuntime, file="samples2Alive2Dead.RData")
 ```
 
 ```{r , eval=T, warning = FALSE, message = FALSE}
 setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
-load("samples.RData")
+load("samples2Alive2Dead.RData")
 
 #plot check 
 chainsPlot(myNimbleOutput, var=c("N[1]","N[2]","N[3]","N[4]","N[5]"), line = N)
-chainsPlot(myNimbleOutput, var=c("p0","sigma","mhW","mhH","tau","betaH","betaW"), 
-           line= c(p0, sigma, mhW, mhH,tau, betaH, betaW))
+chainsPlot(myNimbleOutput, var=c("p0","sigma","mhW","mhH","tau","betaH","betaW","prob2To3"), 
+           line= c(p0, sigma, mhW, mhH,tau, betaH, betaW,prob2To3))
 ```
 
 ## REFERENCES

@@ -5,9 +5,11 @@
 #' 
 #' @param s \code{Vector} of x- and y-coordinates of individual AC location. 
 #' @param habitatGrid \code{Matrix} Matrix of habitat window indices. 
-#' @param isAlive \code{Vector} specifying whether (1) or not (0) individuals are considered alive.
+#' @param indicator \code{Vector} specifying whether (1) or not (0) individuals are considered alive.
 #' @param numWindows \code{Scalar} Number of habitat windows. 
 #' @param nIndividuals \code{Scalar} Total number of individuals .
+#'
+#' @author Cyril Milleret
 #'
 #' @examples
 #' lowerCoords <- matrix(c(0, 0, 1, 0, 0, 1, 1, 1), nrow = 4, byrow = TRUE)
@@ -26,7 +28,7 @@
 #' 
 #' calculateDensity(s = s,
 #'                  habitatGrid = habitatGrid,
-#'                  isAlive = rep(1, 10),
+#'                  indicator = rep(1, 10),
 #'                  numWindows = prod(dim(habitatGrid)),
 #'                  nIndividuals = 10
 #' )
@@ -34,7 +36,7 @@
 
 calculateDensity <- nimbleFunction(run = function(  s = double(2)
                                                   , habitatGrid = double(2)
-                                                  , isAlive = double(1)
+                                                  , indicator = double(1)
                                                   , numWindows = double(0)
                                                   , nIndividuals = double(0)
 ){
@@ -43,7 +45,7 @@ calculateDensity <- nimbleFunction(run = function(  s = double(2)
   
   dens <- numeric(length = numWindows, value = 0)
   for(i in 1:nIndividuals){
-    if(isAlive[i]==1){
+    if(indicator[i]==1){
       windowInd <- habitatGrid[trunc(s[i,2]) + 1, trunc(s[i,1]) + 1]
       dens[windowInd] <- 1 + dens[windowInd]
     }
