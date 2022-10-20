@@ -23,7 +23,11 @@ library(nimble)
 library(nimbleSCR)
 library(basicMCMCplots)
 
+<<<<<<< HEAD
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general.R")
+=======
+source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
+>>>>>>> c66180020bae76f9d13a0dd4a8ca269f629c0c40
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive2Dead.R")
 
 

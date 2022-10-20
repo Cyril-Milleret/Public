@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #' Density and random generation of a categorical distribution describing state transition with two alive and two dead states.
 #' 
 #'
@@ -10,6 +11,18 @@
 #' if the individual does not die (1-(prob3To4+prob3To5)), the individual remain in state 3. 
 #' Individuals in dead states (z_{i,t} = 4 or 5) transition to z_{i,t+1} = 5, the absorbing state, with probability 1.
 #' If transition probabilities are assumed to be spatially heterogeneous, a vector of probability should be provided using the "Hab" arguments (e.g. prob1To2Hab,prob2To3Hab,..).
+=======
+#' Density and random generation for the categorical distribution of state transition with one alive state and two dead state
+#' 
+#'
+#' The \code{dcatState2Alive2Dead} distribution is a NIMBLE custom distribution which can be used to model and simulate
+#' individual state transition. It can be used in cases with one alive state and two dead states. 
+#' If z_{i,t} = 1, individual i can be recruited (transition to state 2) with probability prob1To2_t, so z_{i,t+1} ~dcat(1- prob1To2_t, prob1To2_t, 0 , 0) where prob1To2_(t ) represent the probability of an “unborn” individual to be recruited.
+#' If z_{i,t} = 2, individual i can survive with probability \phi and remain z_{i,t+1}=2. If it does not survive, it can either die due to culling (or any other causes) and be recovered (transition to z_{i,t+1}=3) with probability hi, or die from other causes without being recovered (transition to z_{i,t+1} = 4) with probability w, so that z_{i,t+1} ~ dcat(0, \phi, h, w), where \phi = 1−h −w. 
+#' All individuals in dead states (z_{i,t} = 3 or 4) transition to z_{i,t+1} = 4, the absorbing state, with probability 1.
+#' If prob1To2, w, h or phi are assumed to be spatially heterogeneous, a vector of probability should be provided for prob1To2Hab, prob2To4Hab, prob2To3Hab or phiSpatial.
+#' if prob1To2, w, h or phi are assumed to be spatially homogeneous, a scalar should be provided for prob1To2, w, h or phi.
+>>>>>>> c66180020bae76f9d13a0dd4a8ca269f629c0c40
 #' 
 #' 
 #' @name dcatState2Alive2Dead 
