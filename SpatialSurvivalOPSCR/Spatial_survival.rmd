@@ -22,16 +22,8 @@ In this vignette, we demonstrate how to use the nimbleSCR [@nimbleSCR] and NIMBL
 library(nimble)
 library(nimbleSCR)
 library(basicMCMCplots)
-
-<<<<<<< HEAD
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general.R")
-=======
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
->>>>>>> c66180020bae76f9d13a0dd4a8ca269f629c0c40
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive2Dead.R")
-
-
 ```
+
 
 ## 1. Simulate SCR data
 ### 1.1 Habitat and trapping grid
@@ -85,7 +77,7 @@ lowerAndUpperCoords <- getWindowCoords(
 
 ```
 
-We set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen.
+We set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen).
 
 ```{r , warning = FALSE, message = FALSE}
 trapLocal <- getLocalObjects(habitatMask = habitatMask,
@@ -109,9 +101,16 @@ deadObsLocal <- getLocalObjects(habitatMask = habitatMask,
 ```
 
 ### 1.3 Define model code
-Here, we built an OPSCR model assuming a markovian and bivariate distribution of the movement of individual activity centers across occasions. Concerning the demographic model, we build a multi-state model where each individual life history is represented by a succession of up to four discrete states $z_{i,t}$: 1) “unborn” if the individual has not been recruited in the population; 2) “alive” if it is alive; 3) “culled” if it was culled and recovered dead between the start of the previous and current occasion; or 4) “dead”: if it has died but was not recovered dead.
+Here, we built an OPSCR model assuming a Markovian and bivariate distribution of the movement of individual activity centers across occasions. 
+Concerning the demographic model, we used a multi-state model where each individual life history is represented by a succession of up to four discrete state $z_{i,t}$:
+1) 'unborn' if the individual has not been recruited in the population;
+2) 'alive' if it is alive;
+3) 'culled' if it was culled and recovered dead between the start of the previous and current occasion;
+4) 'dead' if it was died but was not recovered dead. Full details are available in Milleret et al. 
 
-
+```{r state, warning = FALSE, echo = FALSE , fig.cap="State transition", message = FALSE, out.width = "65%", fig.align = 'center'}
+knitr::include_graphics("StateTransition.png")
+```
 
 
 
@@ -177,26 +176,26 @@ modelCode <- nimbleCode({
   
   ## SPATIAL SURVIVAL
   ## SURVIVAL (CAUSE-SPECIFIC MORTALITY SPATIALLY EXPLICIT)
-  mhH1[1:numHabWindows] <- exp(mhH + betaH*habCov[1:numHabWindows])
-  mhW1[1:numHabWindows] <- exp(mhW + betaW*habCov[1:numHabWindows])
+  mhH1[1:numHabWindows] <- exp(mhH + betaH * habCov[1:numHabWindows])
+  mhW1[1:numHabWindows] <- exp(mhW + betaW * habCov[1:numHabWindows])
   
   ## DERIVE MORTALITY AND SURVIVAL PROBABILITIES 
   phi[1:numHabWindows] <- exp(-(mhH1[1:numHabWindows] + mhW1[1:numHabWindows]))
-  h[1:numHabWindows] <-  (1 - phi[1:numHabWindows])* (mhH1[1:numHabWindows]/(mhH1[1:numHabWindows] +
+  h[1:numHabWindows] <-  (1 - phi[1:numHabWindows]) * (mhH1[1:numHabWindows]/(mhH1[1:numHabWindows] +
                          mhW1[1:numHabWindows]))
-  w[1:numHabWindows] <-  (1 - phi[1:numHabWindows])* (mhW1[1:numHabWindows]/(mhH1[1:numHabWindows] +
+  w[1:numHabWindows] <-  (1 - phi[1:numHabWindows]) * (mhW1[1:numHabWindows]/(mhH1[1:numHabWindows] +
                          mhW1[1:numHabWindows]))
   
   ## STATE TRANSITION 
   for(i in 1:M){ 
     z[i,1] ~ dcat(omeg1[1:2]) 
     for(t in 1:n.years1){
-      z[i,t+1] ~ dcatState1Alive2Dead(   z = z[i,t]
-                                 , prob1To2 = gamma[t]
-                                 , prob2To3Hab = h[1:numHabWindows]
-                                 , prob2To4Hab = w[1:numHabWindows]
-                                 , s = s[i,1:2,t]
-                                 , habitatGrid = habitatGrid[1:y.max,1:x.max])
+      z[i,t+1] ~ dcatState1Alive2Dead( z = z[i,t]
+                                     , prob1To2 = gamma[t]
+                                     , prob2To3Hab = h[1:numHabWindows]
+                                     , prob2To4Hab = w[1:numHabWindows]
+                                     , s = s[i,1:2,t]
+                                     , habitatGrid = habitatGrid[1:y.max,1:x.max])
     }#i 								
   }#t 
   
@@ -306,15 +305,18 @@ image(habCovImage)
 mhH1 <- exp(mhH + betaH*habCov)
 mhW1 <- exp(mhW + betaW*habCov)
   
-phi <- exp(-(mhH1 + mhW1))
-h <-  (1-phi) * (mhH1/(mhH1 + mhW1))
-w <-  (1-phi) * (mhW1/(mhH1 + mhW1))
+prob2To2 <- exp(-(mhH1 + mhW1))
+prob2To3 <-  (1-prob2To2) * (mhH1/(mhH1 + mhW1))
+prob2To4 <-  (1-prob2To2) * (mhW1/(mhH1 + mhW1))
   
-plot(phi ~ habCov, ylim=c(0,1), type="b", ylab="Probability")
-points(h ~ habCov, col="red", type="b")
-points(w ~ habCov, col="blue", type="b")
-legend("topright", legend=c("phi","h","w"), 
+plot(prob2To2 ~ habCov, ylim=c(0,1), type="b", ylab="Probability")
+points(prob2To3 ~ habCov, col="red", type="b")
+points(prob2To4 ~ habCov, col="blue", type="b")
+
+legend("topright", 
+       legend=c("prob2To2","prob2To3","prob2To4"), 
        col=c("black","red","blue"), lty=c(1,1,1))
+
 ```
 
 
@@ -454,7 +456,7 @@ model$calculate()
 
 ```
 
-```{r , eval=F, warning = FALSE, message = FALSE}
+```{r , eval=T, warning = FALSE, message = FALSE}
 cmodel <- compileNimble(model)
 cmodel$calculate()
 MCMCconf <- configureMCMC(model = model,
@@ -466,17 +468,18 @@ MCMCconf <- configureMCMC(model = model,
 ## FIND WHICH Z NODES NEED TO BE REPLACED BY THE NEW SAMPLER. 
 samplerConfList <- unlist(lapply(MCMCconf$getSamplers(),function(x) x$target))
 zNodes <- samplerConfList[grep("z",samplerConfList)]
-## FIND Z NODES FROM THE FIRST YEAR
+## FIND Z NODES FROM THE FIRST YEAR (SHOULD NOT BE REPLACED)
 zNodes <- zNodes[-grep( ", 1]",zNodes)]
 
 MCMCconf
 #remove samplers
 MCMCconf$removeSamplers(zNodes)
+#for(i in 1:length(zNodes)){
 MCMCconf$addSampler(target = zNodes,
                       type = 'sampler_categorical_general',
                       scalarComponents = TRUE,
                       control = list("numCategories"= 4))
-
+#}
 MCMC <- buildMCMC(MCMCconf)
 cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
 # RUN THE MCMC 
@@ -485,18 +488,25 @@ MCMCRuntime <- system.time(myNimbleOutput <- runMCMC( mcmc = cMCMC,
                                                              niter = 5000,
                                                              nchains = 3,
                                                              samplesAsCodaMCMC = TRUE))
+
+```
+
+```{r , eval=T, echo=F, warning = FALSE, message = FALSE}
 setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
 save(myNimbleOutput, MCMCRuntime, file="samples.RData")
 ```
 
-```{r , eval=T, warning = FALSE, message = FALSE}
+```{r , eval=T,echo=F, warning = FALSE, message = FALSE}
 setwd("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/")
+```
+
+```{r , eval=T, warning = FALSE, message = FALSE}
 load("samples.RData")
 
 #plot check 
 chainsPlot(myNimbleOutput, var=c("N[1]","N[2]","N[3]","N[4]","N[5]"), line = N)
 chainsPlot(myNimbleOutput, var=c("p0","sigma","mhW","mhH","tau","betaH","betaW"), 
-           line= c(p0, sigma, mhW, mhH,tau, betaH, betaW))
+           line= c(p0, sigma, mhW, mhH, tau, betaH, betaW))
 ```
 
 ## REFERENCES

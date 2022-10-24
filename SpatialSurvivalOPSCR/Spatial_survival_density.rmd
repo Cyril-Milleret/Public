@@ -25,16 +25,8 @@ library(basicMCMCplots)
 library(raster)
 library(coda)
 
-## Functions will be uploaded into nimbleSCR
-<<<<<<< HEAD
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general.R")
-=======
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
->>>>>>> c66180020bae76f9d13a0dd4a8ca269f629c0c40
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive1Dead.R")
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/calculateDensity.R")
-
 ```
+
 
 ## 1. Simulate SCR data
 ### 1.1 Habitat and trapping grid
@@ -90,7 +82,7 @@ lowerAndUpperCoords <- getWindowCoords(
 
 ```
 
-We also set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen.
+We also set up the objects necessary to perform the local evaluation for the live detection using the 'getLocalObjects' function. Special care should be taken when chosing 'dmax' relative to $\sigma$ [@Milleret2019]. Here we are using a value $>3*\sigma$ (see below for the $\sigma$ chosen).
 
 ```{r , warning = FALSE, message = FALSE}
 trapLocal <- getLocalObjects(habitatMask = habitatMask,
@@ -403,17 +395,16 @@ MCMCconf <- configureMCMC(model = model,
 ###FIND WHICH Z NODES NEED TO BE REPLACED BY THE NEW SAMPLER. 
 samplerConfList <- unlist(lapply(MCMCconf$getSamplers(),function(x) x$target))
 zNodes <- samplerConfList[grep("z",samplerConfList)]
-#find z nodes from the first year
+## FIND Z NODES FROM THE FIRST YEAR (SHOULD NOT BE REPLACED)
 zNodes <- zNodes[-grep( ", 1]",zNodes)]
 
 MCMCconf
 #remove samplers
 MCMCconf$removeSamplers(zNodes)
 MCMCconf$addSampler(target = zNodes,
-                      type = 'sampler_categorical_general.R',
+                      type = 'sampler_categorical_general',
                       scalarComponents = TRUE,
                       control = list("numCategories"= 3))
-
 
 MCMC <- buildMCMC(MCMCconf)
 cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
@@ -592,7 +583,7 @@ modelCode1 <- nimbleCode({
   for (t in 1:n.years) {
     dens[1:n.cells, t] <- calculateDensity(  s = s[1:M,1:2, t]
                                            , habitatGrid = habitatGrid[1:y.maxDet, 1:x.maxDet]
-                                           , isAlive = isAlive[1:M,t]  
+                                           , indicator = isAlive[1:M,t]  
                                            , numWindows = n.cells
                                            , nIndividuals = M)#6
   }
@@ -602,7 +593,7 @@ modelCode1 <- nimbleCode({
 
 ```
 
-```{r , eval=T, warning = FALSE, message = FALSE}
+```{r , eval=F, warning = FALSE, message = FALSE}
 nimInits$phi0 <- -3 ## we modify the initial value.
 
 model1 <- nimbleModel( code = modelCode1,
@@ -630,9 +621,10 @@ MCMCconf1
 #remove samplers
 MCMCconf1$removeSamplers(zNodes)
 MCMCconf1$addSampler(target = zNodes,
-                      type = 'sampler_categorical_general.R',
+                      type = 'sampler_categorical_general',
                       scalarComponents = TRUE,
                       control = list("numCategories"= 3))
+
 
 MCMC1 <- buildMCMC(MCMCconf1)
 cMCMC1 <- compileNimble(MCMC1, project = model1, resetFunctions = TRUE)

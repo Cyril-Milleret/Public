@@ -24,13 +24,11 @@ library(nimble)
 library(nimbleSCR)
 library(basicMCMCplots)
 
-source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general1.R")
+source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/sampler_categorical_general.R")
 rm(dcatState2Alive2Dead)
 rm(rcatState2Alive2Dead)
 
 source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState2Alive2Dead.R")
-#source("C:/Personal_Cloud/OneDrive/Work/PublicCodesGit/Public/SpatialSurvivalOPSCR/dcatState1Alive2Dead.R")
-
 
 ```
 
@@ -532,8 +530,10 @@ MCMCconf
 #remove samplers
 MCMCconf$removeSamplers(zNodes)
 for(i in 1:length(zNodes)){
-  MCMCconf$addSampler(target = zNodes[i], type = 'sampler_categorical_general1',
-                                  control=list("numCategories"= 5))
+MCMCconf$addSampler(target = zNodes[i],
+                      type = 'sampler_categorical_general',
+                      scalarComponents = TRUE,
+                      control = list("numCategories"= 5))
 }
 
 MCMC <- buildMCMC(MCMCconf)

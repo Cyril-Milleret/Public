@@ -13,7 +13,7 @@
 #' @examples
 #'
 sampler_categorical_general <- nimbleFunction(
-  name = 'sampler_categorical',
+  name = 'sampler_categorical_general',
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {
     ## node list generation

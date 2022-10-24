@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #' Density and random generation of a categorical distribution describing state transition with one alive and one dead states.
 #' 
 #'
@@ -9,18 +8,6 @@
 #' Individuals in dead states (z_{i,t} = 3 ) remain in that state with probability 1, the absorbing state.
 #' If transition probabilities are assumed to be spatially heterogeneous, a vector of probability should be provided using the "Hab" arguments (e.g. prob1To2Hab,prob2To3Hab).
 #'
-=======
-#' Density and random generation for the categorical distribution of state transition with one alive state and 1 dead state
-#' 
-#'
-#' The \code{dcatState1Alive1Dead} distribution is a NIMBLE custom distribution which can be used to model and simulate
-#' individual state transition. It can be used in cases with one alive state and 1 dead states. 
-#' If z_{i,t} = 1, individual i can be recruited (transition to state 2) with probability prob1To2_t, so z_{i,t+1} ~dcat(1- prob1To2_t, prob1To2_t, 0 , 0) where prob1To2_(t ) represent the probability of an unborn individual to be recruited.
-#' If z_{i,t} = 2, individual i can survive with probability \prob2To3 and remain z_{i,t+1}=2 or die with probability 1- \prob2To3 and transition to z_{i,t+1}=3, the absorbing state. 
-#' If prob1To2 or prob2To3 are assumed to be spatially heterogeneous, a vector of probability should be provided for prob1To2Hab or prob2To3Hab.
-#' if prob1To2 or prob2To3 are assumed to be spatially homogeneous, a scalar should be provided for prob1To2 or prob2To3.
-#' 
->>>>>>> c66180020bae76f9d13a0dd4a8ca269f629c0c40
 #' 
 #' @name dcatState1Alive1Dead 
 #' 
